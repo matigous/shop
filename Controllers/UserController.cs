@@ -30,6 +30,7 @@ namespace Shop.Controllers
         [HttpPost]
         [Route("")]
         [AllowAnonymous]
+        // [Authorize(Roles = "manager")]
         public async Task<ActionResult<User>> Post([FromServices] DataContext context, [FromBody] User model)
         {
             // Verifica se os dados são válidos
@@ -38,8 +39,14 @@ namespace Shop.Controllers
 
             try
             {
+                // Força o usuário a ser sempre funcionário
+                model.Role = "employee";
+
                 context.Users.Add(model);
                 await context.SaveChangesAsync();
+
+                // Esconder a senha
+                model.Password = "";
                 return model;
             }
             catch (Exception)
@@ -48,6 +55,29 @@ namespace Shop.Controllers
             }
         }
 
+        [HttpPut]
+        [Route("{id:int}")]
+        [Authorize(Roles = "manager")]
+        public async Task<ActionResult<User>> Put([FromServices] DataContext context, int id, [FromBody] User model)
+        {
+            // Verifica se os dados são válidos
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            if (id != model.Id)
+                return NotFound(new { message = "Usuário não encontrado" });
+
+            try
+            {
+                context.Entry(model).State = EntityState.Modified;
+                await context.SaveChangesAsync();
+                return model;
+            }
+            catch (Exception)
+            {
+                return BadRequest(new { message = "Não foi possível atualizar o usuário" });
+            }
+        }
 
         [HttpPost]
         [Route("login")]
@@ -64,13 +94,14 @@ namespace Shop.Controllers
 
             var token = TokenService.GenerateToken(user);
 
+            // Esconde a senha
+            user.Password = "";
             return new
             {
                 user = user,
                 token = token
             };
         }
-
 
     }
 }
